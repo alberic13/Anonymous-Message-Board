@@ -4,6 +4,8 @@ const express     = require('express');
 const bodyParser  = require('body-parser');
 const cors        = require('cors');
 const helmet      = require('helmet');
+const path        = require('path');
+const fs          = require('fs');
 
 const apiRoutes         = require('./routes/api.js');
 const fccTestingRoutes  = require('./routes/fcctesting.js');
@@ -16,7 +18,15 @@ app.use(helmet.frameguard({ action: 'sameorigin' }));
 app.use(helmet.dnsPrefetchControl({ allow: false }));
 app.use(helmet.referrerPolicy({ policy: 'same-origin' }));
 
-app.use('/public', express.static(process.cwd() + '/public'));
+function getPath(subPath) {
+  const p1 = path.join(__dirname, subPath);
+  if (fs.existsSync(p1)) return p1;
+  const p2 = path.join(process.cwd(), subPath);
+  if (fs.existsSync(p2)) return p2;
+  return p1;
+}
+
+app.use('/public', express.static(getPath('public')));
 
 app.use(cors({origin: '*'})); //For FCC testing purposes only
 
@@ -26,17 +36,17 @@ app.use(bodyParser.urlencoded({ extended: true }));
 //Sample front-end
 app.route('/b/:board/')
   .get(function (req, res) {
-    res.sendFile(process.cwd() + '/views/board.html');
+    res.sendFile(getPath('views/board.html'));
   });
 app.route('/b/:board/:threadid')
   .get(function (req, res) {
-    res.sendFile(process.cwd() + '/views/thread.html');
+    res.sendFile(getPath('views/thread.html'));
   });
 
 //Index page (static HTML)
 app.route('/')
   .get(function (req, res) {
-    res.sendFile(process.cwd() + '/views/index.html');
+    res.sendFile(getPath('views/index.html'));
   });
 
 //For FCC testing purposes
@@ -52,20 +62,30 @@ app.use(function(req, res, next) {
     .send('Not Found');
 });
 
-//Start our server and tests!
-const listener = app.listen(process.env.PORT || 3000, function () {
-  console.log('Your app is listening on port ' + listener.address().port);
-  if(process.env.NODE_ENV==='test') {
-    console.log('Running Tests...');
-    setTimeout(function () {
-      try {
-        runner.run();
-      } catch(e) {
-        console.log('Tests are not valid:');
-        console.error(e);
-      }
-    }, 1500);
-  }
+//Global Error Handler
+app.use(function(err, req, res, next) {
+  console.error('Application Error:', err);
+  res.status(500)
+    .type('text')
+    .send(err.message || 'Internal Server Error');
 });
 
-module.exports = app; //for testing
+//Start server if not running in Vercel serverless environment
+if (!process.env.VERCEL) {
+  const listener = app.listen(process.env.PORT || 3000, function () {
+    console.log('Your app is listening on port ' + listener.address().port);
+    if(process.env.NODE_ENV==='test') {
+      console.log('Running Tests...');
+      setTimeout(function () {
+        try {
+          runner.run();
+        } catch(e) {
+          console.log('Tests are not valid:');
+          console.error(e);
+        }
+      }, 1500);
+    }
+  });
+}
+
+module.exports = app; //for testing and serverless export

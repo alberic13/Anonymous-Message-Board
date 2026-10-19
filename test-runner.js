@@ -33,19 +33,20 @@ var Mocha = require('mocha'),
     path = require('path');
 
 var mocha = new Mocha();
-var testDir = './tests'
+var testDir = path.join(__dirname, 'tests');
+if (!fs.existsSync(testDir)) {
+  testDir = path.join(process.cwd(), 'tests');
+}
 
-
-// Add each .js file to the mocha instance
-fs.readdirSync(testDir).filter(function(file){
-    // Only keep the .js files
+if (fs.existsSync(testDir)) {
+  fs.readdirSync(testDir).filter(function(file){
     return file.substr(-3) === '.js';
-
-}).forEach(function(file){
+  }).forEach(function(file){
     mocha.addFile(
-        path.join(testDir, file)
+      path.join(testDir, file)
     );
-});
+  });
+}
 
 var emitter = new EventEmitter();  
 emitter.run = function() {
