@@ -1,5 +1,7 @@
 'use strict';
 require('dotenv').config();
+process.env.NODE_ENV = 'test';
+
 const express     = require('express');
 const bodyParser  = require('body-parser');
 const cors        = require('cors');
@@ -49,6 +51,18 @@ app.route('/')
     res.sendFile(getPath('views/index.html'));
   });
 
+//Trigger test runner on demand if not already executed
+app.get('/_api/get-tests', function(req, res, next) {
+  if (!runner.report) {
+    try {
+      runner.run();
+    } catch (e) {
+      console.log('Error triggering test runner:', e.message);
+    }
+  }
+  next();
+});
+
 //For FCC testing purposes
 fccTestingRoutes(app);
 
@@ -74,16 +88,19 @@ app.use(function(err, req, res, next) {
 if (!process.env.VERCEL) {
   const listener = app.listen(process.env.PORT || 3000, function () {
     console.log('Your app is listening on port ' + listener.address().port);
-    if(process.env.NODE_ENV==='test') {
-      console.log('Running Tests...');
-      setTimeout(function () {
-        try {
-          runner.run();
-        } catch(e) {
-          console.log('Tests are not valid:');
-          console.error(e);
-        }
-      }, 1500);
+  });
+}
+
+// Pre-run tests so report is available immediately unless running via Mocha CLI
+const isMochaCli = process.argv.some(arg => typeof arg === 'string' && arg.includes('mocha'));
+if (!isMochaCli) {
+  setImmediate(function() {
+    if (!runner.report) {
+      try {
+        runner.run();
+      } catch (e) {
+        console.log('Runner initialization error:', e.message);
+      }
     }
   });
 }
